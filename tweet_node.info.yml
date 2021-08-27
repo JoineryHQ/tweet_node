@@ -1,0 +1,7 @@
+name: 'Tweet Node'
+type: module
+description: 'Tweet about a node when the node is saved.'
+core: 8.x
+package: 'Social'
+dependencies:
+  - social_post_twitter

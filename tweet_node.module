@@ -1,0 +1,35 @@
+<?php
+
+/**
+ * @file
+ * Contains tweet_node.module.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function tweet_node_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    // Main module help for the tweet_node module.
+    case 'help.page.tweet_node':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('Tweet about a node when the node is saved.') . '</p>';
+      return $output;
+
+    default:
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function tweet_node_theme() {
+  return [
+    'tweet_node' => [
+      'render element' => 'children',
+    ],
+  ];
+}
