@@ -6,6 +6,9 @@
  */
 
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\node\NodeInterface;
+use Drupal\node\NodeForm;
 
 /**
  * Implements hook_help().
@@ -32,4 +35,52 @@ function tweet_node_theme() {
       'render element' => 'children',
     ],
   ];
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function tweet_node_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+  $form_object = $form_state->getFormObject();
+$class = get_class($form_object);
+
+  if ($form_object instanceof NodeForm) {
+    /** @var \Drupal\node\NodeInterface $node */
+    $node = $form_object->getEntity();
+    $node_type = $node->getType();
+
+    if (\Drupal::currentUser()->hasPermission('tweet about content')) {
+      $weight = 0;
+      foreach ($form as $element) {
+        if (is_array($element) && $element['#type'] == 'details') {
+          $weight = max([$weight, $element['#weight']]);
+        }
+      }
+      $form['tweet_node'] = [
+        '#type' => 'details',
+        '#title' => t('Tweet'),
+        '#access' => \Drupal::currentUser()->hasPermission('tweet about content'),
+        '#open' => 0,
+        '#group' => 'advanced',
+        '#tree' => TRUE,
+        '#weight' => ++$weight,
+      ];
+      $form['tweet_node']['is_tweet_node'] = [
+        '#type' => 'checkbox',
+        '#field_name' => 'is_tweet_node',
+        '#title' => t('Tweet about this'),
+        '#required' => FALSE,
+        '#default_value' => 0,
+        '#weight' => $weight++,
+      ];
+      $form['tweet_node']['tweet_body'] = [
+        '#type' => 'textarea',
+        '#field_name' => 'tweet_body',
+        '#title' => t('Tweet body'),
+        '#required' => FALSE,
+        '#default_value' => t('New post on #ionicviper: ') . '!url',
+        '#weight' => $weight++,
+      ];
+    }
+  }
 }
