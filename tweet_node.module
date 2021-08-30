@@ -52,7 +52,7 @@ $class = get_class($form_object);
     if (\Drupal::currentUser()->hasPermission('tweet about content')) {
       $weight = 0;
       foreach ($form as $element) {
-        if (is_array($element) && $element['#type'] == 'details') {
+        if (is_array($element) && ($element['#type'] ?? '') == 'details') {
           $weight = max([$weight, $element['#weight']]);
         }
       }

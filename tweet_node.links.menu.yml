@@ -1,0 +1,6 @@
+tweet_node.settings_form:
+  title: 'Tweet Node settings'
+  route_name: tweet_node.settings_form
+  description: 'Settings for Tweet Node module'
+  parent: social_api.admin_config
+  weight: 99
