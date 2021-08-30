@@ -42,7 +42,6 @@ function tweet_node_theme() {
  */
 function tweet_node_form_alter(&$form, FormStateInterface $form_state, $form_id) {
   $form_object = $form_state->getFormObject();
-$class = get_class($form_object);
 
   if ($form_object instanceof NodeForm) {
     /** @var \Drupal\node\NodeInterface $node */
@@ -89,6 +88,30 @@ $class = get_class($form_object);
           ],
         ],
       ];
+
+      $form['actions']['submit']['#submit'][] = '_tweet_node_node_form_submit';
+    }
+  }
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_update().
+ *
+ * Auto-tweet when so instructed in the node.edit form.
+ */
+function _tweet_node_node_form_submit(array $form, \Drupal\Core\Form\FormStateInterface $form_state){
+
+  // IF the user has the "Tweet about content" permission,
+  // AND if "Tweet about this" is checked,
+  // AND if the node is in Published status,
+  // THEN replace `!url` in "Tweet body" with the absolute URL of the node and tweet the node.
+  if (\Drupal::currentUser()->hasPermission('tweet about content')) {
+    $values = $form_state->getValues();
+    if (
+      $values['status']['value'] == \Drupal\node\NodeInterface::PUBLISHED
+      && $values['tweet_node']['is_tweet_node']
+    ) {
+      \Drupal::messenger()->addStatus(t('Would tweet here.'));
     }
   }
 }
