@@ -80,6 +80,14 @@ $class = get_class($form_object);
         '#required' => FALSE,
         '#default_value' => t('New post on #ionicviper: ') . '!url',
         '#weight' => $weight++,
+        '#states' => [
+          //show this textfield only if the radio 'other' is selected above
+          'visible' => [
+            //don't mistake :input for the type of field. You'll always use
+            //:input here, no matter whether your source is a select, radio or checkbox element.
+            ':input[name="tweet_node[is_tweet_node]"]' => ['checked' => TRUE],
+          ],
+        ],
       ];
     }
   }
