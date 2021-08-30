@@ -78,7 +78,7 @@ $class = get_class($form_object);
         '#field_name' => 'tweet_body',
         '#title' => t('Tweet body'),
         '#required' => FALSE,
-        '#default_value' => t('New post on #ionicviper: ') . '!url',
+        '#default_value' => \Drupal::config('tweet_node.settings')->get('default_tweet_body'),
         '#weight' => $weight++,
         '#states' => [
           //show this textfield only if the radio 'other' is selected above
