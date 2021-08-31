@@ -90,28 +90,63 @@ function tweet_node_form_alter(&$form, FormStateInterface $form_state, $form_id)
       ];
 
       $form['actions']['submit']['#submit'][] = '_tweet_node_node_form_submit';
+      $form['#validate'][] = '_tweet_node_node_form_validate';
     }
   }
 }
 
 /**
- * Implements hook_ENTITY_TYPE_update().
+ * Validation handler for node edit form.
+ *
+ * Ensure tweet body is valid, and store url-replaced tweet body for processing
+ * in submit handler.
+ */
+function _tweet_node_node_form_validate(array &$form, FormStateInterface $form_state) {
+  $values = $form_state->getValues();
+  if ($values['tweet_node']['is_tweet_node'] && empty($values['tweet_node']['tweet_body'])) {
+    $form_state->setErrorByName('tweet_node', t('Tweet body is required if "Teeet about this" is selected.'));
+  }
+  else {
+    $tweetNodeBodyFinal = $values['tweet_node']['tweet_body'];
+    $tweetLengthErrorMessage = t('The Tweet body was too long; it must be 140 characters or less.');
+    if (strpos($values['tweet_node']['tweet_body'], '!url') !== FALSE) {
+      $node = $form_state->getformObject()->getEntity();
+      $nodeUrl = $node->toUrl()->setAbsolute()->toString();
+      $tweetNodeBodyFinal = str_replace('!url', $nodeUrl, $values['tweet_node']['tweet_body']);
+      $tweetLengthErrorMessage = t('The Tweet body was too long; it must be 140 characters or less, with the URL.');
+    }
+    if (strlen($tweetNodeBodyFinal) > 140) {
+      $form_state->setErrorByName('tweet_node', $tweetLengthErrorMessage);
+    }
+    else {
+      $form_state->setValue('tweet_node_body_final', $tweetNodeBodyFinal);
+    }
+  }
+}
+
+/**
+ * Submit handler for node edit form.
  *
  * Auto-tweet when so instructed in the node.edit form.
  */
 function _tweet_node_node_form_submit(array $form, \Drupal\Core\Form\FormStateInterface $form_state){
-
   // IF the user has the "Tweet about content" permission,
   // AND if "Tweet about this" is checked,
   // AND if the node is in Published status,
+  // AND the url-replaced tweet body has any length,
   // THEN replace `!url` in "Tweet body" with the absolute URL of the node and tweet the node.
   if (\Drupal::currentUser()->hasPermission('tweet about content')) {
     $values = $form_state->getValues();
     if (
       $values['status']['value'] == \Drupal\node\NodeInterface::PUBLISHED
       && $values['tweet_node']['is_tweet_node']
+      && !empty($values['tweet_node_body_final'])
     ) {
-      \Drupal::messenger()->addStatus(t('Would tweet here.'));
+      _tweet_node_send_tweet($values['tweet_node_body_final']);
     }
   }
+}
+
+function _tweet_node_send_tweet($tweetBody) {
+  \Drupal::messenger()->addStatus(t('FIXME: Would tweet here: '. $tweetBody));
 }
