@@ -2,7 +2,7 @@ tweet_node.settings_form:
   path: '/admin/config/tweet_node/settings'
   defaults:
     _form: '\Drupal\tweet_node\Form\SettingsForm'
-    _title: 'SettingsForm'
+    _title: 'Tweet Node settings'
   requirements:
     _permission: 'access administration pages'
   options:
