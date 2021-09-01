@@ -158,7 +158,7 @@ function _tweet_node_node_form_submit(array $form, \Drupal\Core\Form\FormStateIn
 }
 
 function _tweet_node_send_tweet($tweetBody) {
- 
+
   // Gets the user manager to retrieve tokens for a user.
   /** @var \Drupal\social_post\User\UserManager $user_manager */
   $user_manager = \Drupal::service('social_post.user_manager');
@@ -172,7 +172,7 @@ function _tweet_node_send_tweet($tweetBody) {
   // If no twitter account linked, the rest is useless.
   if (empty($accounts)) {
     $twitterAccountHolderUser = \Drupal\user\Entity\User::load($twitterAccountHolderUid);
-    
+
     \Drupal::messenger()->addWarning(t('Tweet not sent. A Twitter Account Holder user is specified (%username), but no Twitter account is configured for that user. Please <a href="/user/@uid/edit">edit that user</a> to configure Twitter account access.',
       [
         '%username' => $twitterAccountHolderUser->getAccountName(),
