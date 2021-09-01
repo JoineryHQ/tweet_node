@@ -113,23 +113,25 @@ function tweet_node_form_alter(&$form, FormStateInterface $form_state, $form_id)
  */
 function _tweet_node_node_form_validate(array &$form, FormStateInterface $form_state) {
   $values = $form_state->getValues();
-  if ($values['tweet_node']['is_tweet_node'] && empty($values['tweet_node']['tweet_body'])) {
-    $form_state->setErrorByName('tweet_node', t('Tweet body is required if "Teeet about this" is selected.'));
-  }
-  else {
-    $tweetNodeBodyFinal = $values['tweet_node']['tweet_body'];
-    $tweetLengthErrorMessage = t('The Tweet body was too long; it must be 140 characters or less.');
-    if (strpos($values['tweet_node']['tweet_body'], '!url') !== FALSE) {
-      $node = $form_state->getformObject()->getEntity();
-      $nodeUrl = $node->toUrl()->setAbsolute()->toString();
-      $tweetNodeBodyFinal = str_replace('!url', $nodeUrl, $values['tweet_node']['tweet_body']);
-      $tweetLengthErrorMessage = t('The Tweet body was too long; it must be 140 characters or less, with the URL.');
-    }
-    if (strlen($tweetNodeBodyFinal) > 140) {
-      $form_state->setErrorByName('tweet_node', $tweetLengthErrorMessage);
+  if ($values['tweet_node']['is_tweet_node']) {
+    if (empty($values['tweet_node']['tweet_body'])) {
+      $form_state->setErrorByName('tweet_node', t('Tweet body is required if "Teeet about this" is selected.'));
     }
     else {
-      $form_state->setValue('tweet_node_body_final', $tweetNodeBodyFinal);
+      $tweetNodeBodyFinal = $values['tweet_node']['tweet_body'];
+      $tweetLengthErrorMessage = t('The Tweet body was too long; it must be 140 characters or less.');
+      if (strpos($values['tweet_node']['tweet_body'], '!url') !== FALSE) {
+        $node = $form_state->getformObject()->getEntity();
+        $nodeUrl = $node->toUrl()->setAbsolute()->toString();
+        $tweetNodeBodyFinal = str_replace('!url', $nodeUrl, $values['tweet_node']['tweet_body']);
+        $tweetLengthErrorMessage = t('The Tweet body was too long; it must be 140 characters or less, with the URL.');
+      }
+      if (strlen($tweetNodeBodyFinal) > 140) {
+        $form_state->setErrorByName('tweet_node', $tweetLengthErrorMessage);
+      }
+      else {
+        $form_state->setValue('tweet_node_body_final', $tweetNodeBodyFinal);
+      }
     }
   }
 }
@@ -198,19 +200,34 @@ function _tweet_node_send_tweet($tweetBody) {
       // Build credentials for that particular twitter account.
       $access_token = json_decode($account->getToken(), TRUE);
       // Post our tweet on behalf of the user to this associated twitter account.
-      $post_manager
+      $tweet = [
+        'status' => $tweetBody,
+      ];
+      $doPostResult = $post_manager
         ->setClient($client)
         ->setOauthToken(
           $access_token['oauth_token'],
           $access_token['oauth_token_secret']
         )
         ->doPost($tweet);
-      \Drupal::messenger()->addStatus(
-        t('Posted tweet under Twitter user %twitterName: @tweetBody',[
-          '%twitterName' => $account->getName(),
-          '@tweetBody' => $tweetBody,
-        ])
-      );
+      if ($doPostResult) {
+        \Drupal::messenger()->addStatus(
+          t('Posted under Twitter user <a href="https://twitter.com/i/user/@providerUserId">%twitterName</a>: @tweetBody',[
+            '%twitterName' => $account->getName(),
+            '@tweetBody' => $tweetBody,
+            '@providerUserId' => $account->getProviderUserId(),
+          ])
+        );
+      }
+      else {
+        \Drupal::messenger()->addError(
+          t('Failed posting tweet under Twitter user <a href="https://twitter.com/i/user/@providerUserId">%twitterName</a>: @tweetBody',[
+            '%twitterName' => $account->getName(),
+            '@tweetBody' => $tweetBody,
+            '@providerUserId' => $account->getProviderUserId(),
+          ])
+        );
+      }
 
     }
   }

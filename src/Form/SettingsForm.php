@@ -32,6 +32,10 @@ class SettingsForm extends ConfigFormBase {
   public function buildForm(array $form, FormStateInterface $form_state) {
     $config = $this->config('tweet_node.settings');
     $twitterAccountHolderUid = $config->get('twitter_account_holder');
+    $twitterAccountHolderUser = NULL;
+    if ($twitterAccountHolderUid) {
+      $twitterAccountHolderUser = \Drupal\user\Entity\User::load($twitterAccountHolderUid);
+    }
 
     $form['twitter_account_holder'] = [
       '#type' => 'entity_autocomplete',
@@ -50,7 +54,6 @@ class SettingsForm extends ConfigFormBase {
     // Only upon initial load of the form (not on submit), warn if configured twitter user
     // does not actually have a twitter account configured.
     if (empty($form_state->getUserInput()) && !$form_state->isRebuilding() && $twitterAccountHolderUid) {
-      $twitterAccountHolderUser = \Drupal\user\Entity\User::load($twitterAccountHolderUid);
       // Get all the Twitter accounts associated with the user account.
       $user_manager = \Drupal::service('social_post.user_manager');
       $accounts = $user_manager->getAccounts('social_post_twitter', $twitterAccountHolderUid);
