@@ -179,40 +179,17 @@ function _tweet_node_send_tweet($tweetBody) {
         '@uid' => $twitterAccountHolderUid
       ]
     ));
+    \Drupal::messenger()->addWarning(t('Would have tweeted: '). $tweetBody);
   }
   else {
 
-    // Get tags associated with the node.
-    $hashtags = '';
-    $tags = $node->get('field_tags')->referencedEntities();
-    foreach ((array) $tags as $tag) {
-      $hashtags .= "#{$tag->label()} ";
-    }
-
-    // Build the tweet status.
-    $status = t('Hey folks, check out my new blog post !', [], [
-        'langcode' => $node->language()->getId()
-      ]
-    ) . chr(13) . chr(10) . $hashtags;
-
-    // Tweets must be less than 140 characters
-    // - minus 23 for the wrapped link
-    // - minus 2 because of the next linebreak added before the url
-    $status = \Drupal\Component\Utility\Unicode::truncate($status, 115, TRUE, TRUE);
-
-    // Add the link to the node (added after wrapping the status to not affect the url)
-    // it should get transformed to a twitter card.
-    $tweet['status'] = $status . chr(13) . chr(10) . $node->toUrl('canonical', [
-      'absolute' => TRUE
-    ])->toString();
-
-    // Gets instance of Social Post Twitter Network plugin.
+    // Get an instance of Social Post Twitter Network plugin.
     /** @var \Drupal\social_post_twitter\Plugin\Network\TwitterPostInterface $plugin */
     $client = \Drupal::service('plugin.network.manager')
       ->createInstance('social_post_twitter')
       ->getSdk();
 
-    // Gets the twitter post manager to tweet.
+    // Get the twitter post manager to tweet.
     /** @var \Drupal\social_post_twitter\TwitterPostManager $post_manager */
     $post_manager = \Drupal::service('twitter_post.manager');
 
@@ -228,7 +205,13 @@ function _tweet_node_send_tweet($tweetBody) {
           $access_token['oauth_token_secret']
         )
         ->doPost($tweet);
+      \Drupal::messenger()->addStatus(
+        t('Posted tweet under Twitter user %twitterName: @tweetBody',[
+          '%twitterName' => $account->getName(),
+          '@tweetBody' => $tweetBody,
+        ])
+      );
+
     }
   }
-  \Drupal::messenger()->addStatus(t('FIXME: Would tweet here: '. $tweetBody));
 }
