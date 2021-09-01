@@ -64,33 +64,43 @@ function tweet_node_form_alter(&$form, FormStateInterface $form_state, $form_id)
         '#tree' => TRUE,
         '#weight' => ++$weight,
       ];
-      $form['tweet_node']['is_tweet_node'] = [
-        '#type' => 'checkbox',
-        '#field_name' => 'is_tweet_node',
-        '#title' => t('Tweet about this'),
-        '#required' => FALSE,
-        '#default_value' => 0,
-        '#weight' => $weight++,
-      ];
-      $form['tweet_node']['tweet_body'] = [
-        '#type' => 'textarea',
-        '#field_name' => 'tweet_body',
-        '#title' => t('Tweet body'),
-        '#required' => FALSE,
-        '#default_value' => \Drupal::config('tweet_node.settings')->get('default_tweet_body'),
-        '#weight' => $weight++,
-        '#states' => [
-          //show this textfield only if the radio 'other' is selected above
-          'visible' => [
-            //don't mistake :input for the type of field. You'll always use
-            //:input here, no matter whether your source is a select, radio or checkbox element.
-            ':input[name="tweet_node[is_tweet_node]"]' => ['checked' => TRUE],
-          ],
-        ],
-      ];
 
-      $form['actions']['submit']['#submit'][] = '_tweet_node_node_form_submit';
-      $form['#validate'][] = '_tweet_node_node_form_validate';
+      $config = \Drupal::config('tweet_node.settings');
+      if ($config->get('twitter_account_holder')) {
+        $form['tweet_node']['is_tweet_node'] = [
+          '#type' => 'checkbox',
+          '#field_name' => 'is_tweet_node',
+          '#title' => t('Tweet about this'),
+          '#required' => FALSE,
+          '#default_value' => 0,
+          '#weight' => $weight++,
+        ];
+        $form['tweet_node']['tweet_body'] = [
+          '#type' => 'textarea',
+          '#field_name' => 'tweet_body',
+          '#title' => t('Tweet body'),
+          '#required' => FALSE,
+          '#default_value' => $config->get('default_tweet_body'),
+          '#weight' => $weight++,
+          '#states' => [
+            //show this textfield only if the radio 'other' is selected above
+            'visible' => [
+              //don't mistake :input for the type of field. You'll always use
+              //:input here, no matter whether your source is a select, radio or checkbox element.
+              ':input[name="tweet_node[is_tweet_node]"]' => ['checked' => TRUE],
+            ],
+          ],
+        ];
+
+        $form['actions']['submit']['#submit'][] = '_tweet_node_node_form_submit';
+        $form['#validate'][] = '_tweet_node_node_form_validate';
+      }
+      else {
+        $form['tweet_node'][] = [
+          '#type' => 'markup',
+          '#markup' => t('The Tweet Node module is not fully configured. Please <a href="@tweet-node-config-url">edit the Tweet Node configuration</a>.', ['@tweet-node-config-url' => '/admin/config/tweet_node/settings']),
+        ];
+      }
     }
   }
 }
@@ -148,5 +158,77 @@ function _tweet_node_node_form_submit(array $form, \Drupal\Core\Form\FormStateIn
 }
 
 function _tweet_node_send_tweet($tweetBody) {
+ 
+  // Gets the user manager to retrieve tokens for a user.
+  /** @var \Drupal\social_post\User\UserManager $user_manager */
+  $user_manager = \Drupal::service('social_post.user_manager');
+
+  $config = \Drupal::config('tweet_node.settings');
+  $twitterAccountHolderUid = $config->get('twitter_account_holder');
+
+  // Gets all the Twitter accounts associated with the node author account.
+  $accounts = $user_manager->getAccounts('social_post_twitter', $twitterAccountHolderUid);
+
+  // If no twitter account linked, the rest is useless.
+  if (empty($accounts)) {
+    $twitterAccountHolderUser = \Drupal\user\Entity\User::load($twitterAccountHolderUid);
+    
+    \Drupal::messenger()->addWarning(t('Tweet not sent. A Twitter Account Holder user is specified (%username), but no Twitter account is configured for that user. Please <a href="/user/@uid/edit">edit that user</a> to configure Twitter account access.',
+      [
+        '%username' => $twitterAccountHolderUser->getAccountName(),
+        '@uid' => $twitterAccountHolderUid
+      ]
+    ));
+  }
+  else {
+
+    // Get tags associated with the node.
+    $hashtags = '';
+    $tags = $node->get('field_tags')->referencedEntities();
+    foreach ((array) $tags as $tag) {
+      $hashtags .= "#{$tag->label()} ";
+    }
+
+    // Build the tweet status.
+    $status = t('Hey folks, check out my new blog post !', [], [
+        'langcode' => $node->language()->getId()
+      ]
+    ) . chr(13) . chr(10) . $hashtags;
+
+    // Tweets must be less than 140 characters
+    // - minus 23 for the wrapped link
+    // - minus 2 because of the next linebreak added before the url
+    $status = \Drupal\Component\Utility\Unicode::truncate($status, 115, TRUE, TRUE);
+
+    // Add the link to the node (added after wrapping the status to not affect the url)
+    // it should get transformed to a twitter card.
+    $tweet['status'] = $status . chr(13) . chr(10) . $node->toUrl('canonical', [
+      'absolute' => TRUE
+    ])->toString();
+
+    // Gets instance of Social Post Twitter Network plugin.
+    /** @var \Drupal\social_post_twitter\Plugin\Network\TwitterPostInterface $plugin */
+    $client = \Drupal::service('plugin.network.manager')
+      ->createInstance('social_post_twitter')
+      ->getSdk();
+
+    // Gets the twitter post manager to tweet.
+    /** @var \Drupal\social_post_twitter\TwitterPostManager $post_manager */
+    $post_manager = \Drupal::service('twitter_post.manager');
+
+    /** @var \Drupal\social_post\Entity\SocialPost $account */
+    foreach ((array) $accounts as $account) {
+      // Build credentials for that particular twitter account.
+      $access_token = json_decode($account->getToken(), TRUE);
+      // Post our tweet on behalf of the user to this associated twitter account.
+      $post_manager
+        ->setClient($client)
+        ->setOauthToken(
+          $access_token['oauth_token'],
+          $access_token['oauth_token_secret']
+        )
+        ->doPost($tweet);
+    }
+  }
   \Drupal::messenger()->addStatus(t('FIXME: Would tweet here: '. $tweetBody));
 }
