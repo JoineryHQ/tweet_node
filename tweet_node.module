@@ -9,6 +9,7 @@ use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
 use Drupal\node\NodeForm;
+use Drupal\Core\Url;
 
 /**
  * Implements hook_help().
@@ -121,8 +122,7 @@ function _tweet_node_node_form_validate(array &$form, FormStateInterface $form_s
       $tweetNodeBodyFinal = $values['tweet_node']['tweet_body'];
       $tweetLengthErrorMessage = t('The Tweet body was too long; it must be 140 characters or less.');
       if (strpos($values['tweet_node']['tweet_body'], '!url') !== FALSE) {
-        $node = $form_state->getformObject()->getEntity();
-        $nodeUrl = $node->toUrl()->setAbsolute()->toString();
+        $nodeUrl = _tweet_node_get_node_url($form_state, $values);
         $tweetNodeBodyFinal = str_replace('!url', $nodeUrl, $values['tweet_node']['tweet_body']);
         $tweetLengthErrorMessage = t('The Tweet body was too long; it must be 140 characters or less, with the URL.');
       }
@@ -231,4 +231,30 @@ function _tweet_node_send_tweet($tweetBody) {
 
     }
   }
+}
+
+function _tweet_node_get_node_url($form_state, $values) {
+  /* This is executed during form validation (because we need the full URL in
+   * order to validate tweet length. Therefore, we must build the full URL based
+   * on the submited alias (whether it is empty or not).
+   */
+  if (!empty($values['path'][0]['alias'])) {
+   $alias = $values['path'][0]['alias'];
+  }
+  else {
+    $node = $form_state->getformObject()->getEntity();
+    $alias = '/node/' . $node->id();
+  }
+
+  /* Because we're using the raw submitted value for the alias, it's possible
+   * that this alias will fail validation, which will result in an InvalidArgumentException
+   * from Url::fromUri; therefore we silently catch such exceptions. Drupal form
+   * validation will report them on its own.
+   */
+  try {
+    $nodeUrl= Url::fromUri('internal:' . $alias, array('absolute' => TRUE))->toString();
+  } catch (\InvalidArgumentException $e) {
+    // Silently do nothing.
+  }
+  return $nodeUrl;
 }
