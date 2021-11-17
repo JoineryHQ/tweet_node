@@ -256,5 +256,10 @@ function _tweet_node_get_node_url($form_state, $values) {
   } catch (\InvalidArgumentException $e) {
     // Silently do nothing.
   }
+
+  // Shorten this url using 'shorten' module, if it's installed.
+  if (function_exists('shorten_url')) {
+    $nodeUrl = shorten_url($nodeUrl);
+  }
   return $nodeUrl;
 }
